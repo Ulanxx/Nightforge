@@ -13,3 +13,33 @@ The first milestone is a web MVP:
 See the initial design spec:
 
 - `docs/superpowers/specs/2026-05-24-manus-like-agent-design.md`
+
+## Development
+
+```bash
+npm install
+cp .env.example .env
+npm run prisma:generate
+npm run dev
+```
+
+Open `http://localhost:3000`.
+
+## Current Scaffold
+
+- Next.js 16 App Router with TypeScript and Tailwind CSS.
+- Workspace-first UI for chat, permissions, events, risk queue, and artifacts.
+- Placeholder task API at `POST /api/tasks`.
+- Agent runtime interface in `lib/agent`.
+- E2B sandbox manager interface in `lib/sandbox`.
+- Policy engine starter in `lib/policy`.
+- Prisma schema for sessions, tasks, messages, tool calls, approvals, artifacts, sandboxes, and event logs.
+
+## Verification
+
+```bash
+npm run prisma:generate
+npm run typecheck
+npm run lint
+npm run build
+```

@@ -1,0 +1,104 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String    @id @default(cuid())
+  email     String?   @unique
+  name      String?
+  createdAt DateTime  @default(now())
+  sessions  Session[]
+}
+
+model Session {
+  id        String    @id @default(cuid())
+  title     String
+  userId    String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  user      User?     @relation(fields: [userId], references: [id])
+  messages  Message[]
+  tasks     Task[]
+  sandbox   Sandbox?
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  sessionId String
+  role      String
+  content   String
+  createdAt DateTime @default(now())
+  session   Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+}
+
+model Task {
+  id        String     @id @default(cuid())
+  sessionId String
+  status    String
+  prompt    String
+  summary   String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  session   Session    @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  toolCalls ToolCall[]
+  approvals ApprovalRequest[]
+  events    EventLog[]
+}
+
+model ToolCall {
+  id        String   @id @default(cuid())
+  taskId    String
+  tool      String
+  inputJson String
+  outputJson String?
+  status    String
+  createdAt DateTime @default(now())
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+}
+
+model ApprovalRequest {
+  id        String   @id @default(cuid())
+  taskId    String
+  status    String
+  reason    String
+  risk      String
+  createdAt DateTime @default(now())
+  resolvedAt DateTime?
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+}
+
+model Artifact {
+  id          String   @id @default(cuid())
+  sessionId   String
+  taskId      String?
+  name        String
+  mimeType    String?
+  storagePath String
+  sandboxPath String?
+  createdAt   DateTime @default(now())
+}
+
+model Sandbox {
+  id        String   @id @default(cuid())
+  sessionId String   @unique
+  sandboxId String
+  status    String
+  createdAt DateTime @default(now())
+  lastUsedAt DateTime @default(now())
+  expiresAt DateTime?
+  session   Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+}
+
+model EventLog {
+  id        String   @id @default(cuid())
+  taskId    String
+  type      String
+  payload   String
+  createdAt DateTime @default(now())
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+}
