@@ -1,33 +1,14 @@
 import { OpenRouter } from "@openrouter/sdk";
 import { z } from "zod";
+import { getOpenRouterEnv } from "@/lib/config/env";
 
 type ChatMessage = {
   role: "system" | "user" | "assistant";
   content: string;
 };
 
-function getOpenRouterConfig() {
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  const model = process.env.OPENROUTER_MODEL;
-  const baseUrl = process.env.OPENROUTER_BASE_URL ?? "https://openrouter.ai/api/v1";
-
-  if (!apiKey) {
-    throw new Error("OPENROUTER_API_KEY is not configured.");
-  }
-
-  if (!model) {
-    throw new Error("OPENROUTER_MODEL is not configured.");
-  }
-
-  return {
-    apiKey,
-    model,
-    baseUrl
-  };
-}
-
 function createOpenRouterClient() {
-  const { apiKey, baseUrl } = getOpenRouterConfig();
+  const { apiKey, baseUrl } = getOpenRouterEnv();
 
   return new OpenRouter({
     apiKey,
@@ -46,7 +27,7 @@ export async function createStructuredChatCompletion<T>({
   messages: ChatMessage[];
   normalize?: (value: unknown) => unknown;
 }) {
-  const { model } = getOpenRouterConfig();
+  const { model } = getOpenRouterEnv();
   const client = createOpenRouterClient();
 
   const response = await client.chat.send({
@@ -60,7 +41,7 @@ export async function createStructuredChatCompletion<T>({
   const content = extractContent(rawContent);
 
   if (!content) {
-    throw new Error("OpenRouter returned an empty response.");
+    throw new Error("OpenRouter 返回了空响应。");
   }
 
   try {
@@ -68,7 +49,7 @@ export async function createStructuredChatCompletion<T>({
     return schema.parse(normalize ? normalize(parsed) : parsed);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Structured parse failed. Raw model content: ${content}\nParser error: ${message}`);
+    throw new Error(`结构化解析失败。模型原始内容：${content}\n解析错误：${message}`);
   }
 }
 
@@ -107,7 +88,7 @@ function parseJsonLikeContent(content: string) {
     const objectMatch = normalized.match(/\{[\s\S]*\}/);
 
     if (!objectMatch) {
-      throw new Error(`Model did not return valid JSON content: ${content}`);
+      throw new Error(`模型没有返回有效 JSON 内容：${content}`);
     }
 
     return JSON.parse(objectMatch[0]);

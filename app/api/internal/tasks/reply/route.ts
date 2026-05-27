@@ -1,25 +1,21 @@
 import { NextResponse } from "next/server";
+import { internalTaskReplyRequestSchema } from "@/lib/api/schemas";
 import { continueTaskInBackground } from "@/lib/agent/executor";
 
 export async function POST(request: Request) {
-  const body = await request.json();
-  const sessionId = String(body.sessionId ?? "");
-  const taskId = String(body.taskId ?? "");
-  const originalPrompt = String(body.originalPrompt ?? "").trim();
-  const clarificationAnswer = String(body.clarificationAnswer ?? "").trim();
+  const parsedBody = internalTaskReplyRequestSchema.safeParse(await request.json());
 
-  if (!sessionId || !taskId || !originalPrompt || !clarificationAnswer) {
-    return NextResponse.json(
-      { error: "sessionId, taskId, originalPrompt, and clarificationAnswer are required." },
-      { status: 400 }
-    );
+  if (!parsedBody.success) {
+    return NextResponse.json({ error: parsedBody.error.issues[0]?.message ?? "请求体格式错误。" }, { status: 400 });
   }
+
+  const { sessionId, taskId, originalPrompt, message } = parsedBody.data;
 
   await continueTaskInBackground({
     sessionId,
     taskId,
     originalPrompt,
-    clarificationAnswer
+    clarificationAnswer: message
   });
 
   return NextResponse.json({ ok: true });

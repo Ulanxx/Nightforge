@@ -1,16 +1,21 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f4f2ec;
-  --foreground: #171814;
-  --muted: #6e6b63;
-  --line: #d7d1c4;
-  --panel: #fbfaf6;
-  --panel-strong: #efe8dc;
-  --accent: #1f7a63;
-  --accent-strong: #0f5d4a;
-  --warning: #b25a1d;
-  --danger: #a83232;
+  --background: #f3f5f7;
+  --foreground: #111827;
+  --muted: #6b7280;
+  --line: #d7dde6;
+  --panel: #fbfcfd;
+  --panel-strong: #eef2f6;
+  --sidebar: #eef2f5;
+  --accent: #0f766e;
+  --accent-strong: #0b5d57;
+  --warning: #c76828;
+  --danger: #b63b3b;
+  --ink-soft: #273444;
+  --radius-md: 10px;
+  --radius-lg: 18px;
+  --shadow-soft: 0 22px 70px rgba(15, 23, 42, 0.06);
 }
 
 * {
@@ -25,12 +30,12 @@ body {
 body {
   margin: 0;
   background:
-    linear-gradient(90deg, rgba(23, 24, 20, 0.04) 1px, transparent 1px),
-    linear-gradient(rgba(23, 24, 20, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(17, 24, 39, 0.028) 1px, transparent 1px),
+    linear-gradient(rgba(17, 24, 39, 0.024) 1px, transparent 1px),
     var(--background);
   background-size: 28px 28px;
   color: var(--foreground);
-  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-sans), "PingFang SC", "Noto Sans SC", ui-sans-serif, system-ui, sans-serif;
   letter-spacing: 0;
 }
 
@@ -44,6 +49,19 @@ button {
   cursor: pointer;
 }
 
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.font-serif {
+  font-family: var(--font-serif), "Songti SC", serif;
+}
+
+.font-mono {
+  font-family: var(--font-mono), ui-monospace, SFMono-Regular, monospace;
+}
+
 ::selection {
-  background: rgba(31, 122, 99, 0.18);
+  background: rgba(15, 118, 110, 0.18);
 }

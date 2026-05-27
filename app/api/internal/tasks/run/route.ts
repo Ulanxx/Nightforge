@@ -1,16 +1,15 @@
 import { NextResponse } from "next/server";
+import { internalTaskRunRequestSchema } from "@/lib/api/schemas";
 import { executeTaskInBackground } from "@/lib/agent/executor";
 
 export async function POST(request: Request) {
-  const body = await request.json();
-  const sessionId = String(body.sessionId ?? "");
-  const taskId = String(body.taskId ?? "");
-  const message = String(body.message ?? "").trim();
-  const permissions = Array.isArray(body.permissions) ? body.permissions.map(String) : [];
+  const parsedBody = internalTaskRunRequestSchema.safeParse(await request.json());
 
-  if (!sessionId || !taskId || !message) {
-    return NextResponse.json({ error: "sessionId, taskId, and message are required." }, { status: 400 });
+  if (!parsedBody.success) {
+    return NextResponse.json({ error: parsedBody.error.issues[0]?.message ?? "请求体格式错误。" }, { status: 400 });
   }
+
+  const { sessionId, taskId, message, permissions } = parsedBody.data;
 
   await executeTaskInBackground({
     sessionId,

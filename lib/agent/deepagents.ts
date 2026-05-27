@@ -2,29 +2,20 @@ import { tool } from "@langchain/core/tools";
 import { ChatOpenAI } from "@langchain/openai";
 import { createDeepAgent } from "deepagents";
 import { z } from "zod";
-import { generateResearchPlan, type ResearchPlan } from "@/lib/agent/planning";
-import { runResearchReportTask } from "@/lib/agent/report-runner";
+import { getOpenRouterEnv } from "@/lib/config/env";
+import { generateExecutionPlan, type ExecutionPlan } from "@/lib/agent/planning";
+import { runTaskDeliverableFlow } from "@/lib/agent/deliverable-runner";
 import type { AgentRuntimeEvent } from "@/lib/agent/runtime";
 
 function createOpenRouterChatModel() {
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  const model = process.env.OPENROUTER_MODEL;
-  const baseURL = process.env.OPENROUTER_BASE_URL ?? "https://openrouter.ai/api/v1";
-
-  if (!apiKey) {
-    throw new Error("OPENROUTER_API_KEY is not configured.");
-  }
-
-  if (!model) {
-    throw new Error("OPENROUTER_MODEL is not configured.");
-  }
+  const { apiKey, model, baseUrl } = getOpenRouterEnv();
 
   return new ChatOpenAI({
     model,
     apiKey,
     temperature: 0.2,
     configuration: {
-      baseURL
+      baseURL: baseUrl
     }
   });
 }
@@ -34,13 +25,13 @@ export async function generatePlanWithDeepAgents(prompt: string) {
 
   const planningTool = tool(
     async ({ request }) => {
-      const plan = await generateResearchPlan(request);
+      const plan = await generateExecutionPlan(request);
       return JSON.stringify(plan);
     },
     {
-      name: "generate_research_plan",
+      name: "generate_execution_plan",
       description:
-        "Generate a concrete research plan with objective, research angles, report sections, and source strategy.",
+        "生成包含目标、执行角度、交付结构和材料策略的具体执行计划。字段内容使用中文。",
       schema: z.object({
         request: z.string().min(1)
       })
@@ -51,14 +42,14 @@ export async function generatePlanWithDeepAgents(prompt: string) {
     model,
     tools: [planningTool],
     systemPrompt:
-      "You are a research planning orchestrator. Use the provided tool to produce a concrete research plan. Return a concise JSON object only."
+      "你是任务执行计划编排器。使用提供的工具生成具体执行计划。必须只返回简洁 JSON，字段内容使用中文。"
   });
 
   const result = await agent.invoke({
     messages: [
       {
         role: "user",
-        content: `Create a concrete research plan for this request:\n\n${prompt}`
+        content: `为以下请求创建具体执行计划：\n\n${prompt}`
       }
     ]
   });
@@ -75,17 +66,17 @@ export async function generatePlanWithDeepAgents(prompt: string) {
   const jsonMatch = content.match(/\{[\s\S]*\}/);
 
   if (jsonMatch) {
-    return JSON.parse(jsonMatch[0]) as ResearchPlan;
+    return JSON.parse(jsonMatch[0]) as ExecutionPlan;
   }
 
   return parsePlanFromNarrative(content);
 }
 
-function parsePlanFromNarrative(content: string): ResearchPlan {
+function parsePlanFromNarrative(content: string): ExecutionPlan {
   const normalized = content.replace(/\r\n/g, "\n").trim();
 
   if (!normalized) {
-    throw new Error("DeepAgents returned an empty planning response.");
+    throw new Error("DeepAgents 返回了空的计划响应。");
   }
 
   const objective = extractSection(normalized, ["Objective"]);
@@ -102,7 +93,7 @@ function parsePlanFromNarrative(content: string): ResearchPlan {
     };
   }
 
-  throw new Error(`DeepAgents returned an unparseable plan. Raw output: ${content}`);
+  throw new Error(`DeepAgents 返回了无法解析的计划。原始输出：${content}`);
 }
 
 function extractSection(content: string, headings: string[]) {
@@ -151,7 +142,7 @@ function extractBulletList(section: string) {
     .slice(0, 6);
 }
 
-export async function* runDeepAgentsResearchTask({
+export async function* runDeepAgentsTask({
   sessionId,
   taskId,
   prompt
@@ -164,7 +155,7 @@ export async function* runDeepAgentsResearchTask({
     type: "tool.started",
     taskId,
     tool: "llm.plan",
-    summary: "Generate a concrete research plan with DeepAgents."
+    summary: "使用 DeepAgents 生成具体执行计划。"
   };
 
   const plan = await generatePlanWithDeepAgents(prompt);
@@ -173,17 +164,17 @@ export async function* runDeepAgentsResearchTask({
     type: "tool.finished",
     taskId,
     tool: "llm.plan",
-    summary: "Research plan is ready."
+    summary: "执行计划已生成。"
   };
 
   yield {
     type: "plan.updated",
     taskId,
     steps: [
-      `Objective: ${plan.objective}`,
-      ...plan.researchAngles.map((angle) => `Research angle: ${angle}`),
-      ...plan.reportSections.map((section) => `Report section: ${section}`),
-      `Source strategy: ${plan.sourceStrategy}`
+      `目标：${plan.objective}`,
+      ...plan.researchAngles.map((angle) => `执行角度：${angle}`),
+      ...plan.reportSections.map((section) => `交付结构：${section}`),
+      `材料策略：${plan.sourceStrategy}`
     ]
   };
 
@@ -191,10 +182,10 @@ export async function* runDeepAgentsResearchTask({
     type: "task.status",
     taskId,
     status: "planning",
-    summary: "Research plan generated successfully."
+    summary: "执行计划已成功生成。"
   };
 
-  for await (const event of runResearchReportTask({
+  for await (const event of runTaskDeliverableFlow({
     sessionId,
     taskId,
     prompt

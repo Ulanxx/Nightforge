@@ -1,14 +1,14 @@
 import {
   fetchSourceContent,
-  formatReportMarkdown,
-  selectResearchSources,
-  synthesizeResearchReport,
-  writeReportArtifact
-} from "@/lib/agent/research";
+  formatArtifactMarkdown,
+  selectWebSources,
+  synthesizeTaskDeliverable,
+  writeArtifactDocument
+} from "@/lib/agent/web-input";
 import type { AgentRuntimeEvent } from "@/lib/agent/runtime";
 import { createArtifact } from "@/lib/store/artifacts";
 
-export async function* runResearchReportTask({
+export async function* runTaskDeliverableFlow({
   sessionId,
   taskId,
   prompt
@@ -20,24 +20,24 @@ export async function* runResearchReportTask({
   yield {
     type: "task.status",
     taskId,
-    status: "researching",
-    summary: "Research plan is locked. Selecting sources and gathering evidence."
+    status: "executing",
+    summary: "执行计划已确定，正在收集网页材料并提取可用内容。"
   };
 
   yield {
     type: "tool.started" as const,
     taskId,
-    tool: "research.sources",
-    summary: "Select a focused set of public web sources."
+    tool: "web.collect",
+    summary: "选择一组与当前任务最相关的公开网页材料。"
   };
 
-  const sourceSelection = await selectResearchSources(prompt);
+  const sourceSelection = await selectWebSources(prompt);
 
   yield {
     type: "tool.finished" as const,
     taskId,
-    tool: "research.sources",
-    summary: `Selected ${sourceSelection.sources.length} research sources.`
+    tool: "web.collect",
+    summary: `已选定 ${sourceSelection.sources.length} 个网页输入材料。`
   };
 
   const sources = [];
@@ -47,7 +47,7 @@ export async function* runResearchReportTask({
       type: "tool.started" as const,
       taskId,
       tool: "web.read",
-      summary: `Fetch source: ${source.title}`
+      summary: `读取网页材料：${source.title}`
     };
 
     try {
@@ -61,37 +61,37 @@ export async function* runResearchReportTask({
         type: "tool.finished" as const,
         taskId,
         tool: "web.read",
-        summary: `Captured source: ${source.title}`
+        summary: `已获取网页内容：${source.title}`
       };
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown fetch error.";
+      const message = error instanceof Error ? error.message : "未知抓取错误。";
 
       yield {
         type: "tool.finished" as const,
         taskId,
         tool: "web.read",
-        summary: `Skipped source: ${source.title} (${message})`
+        summary: `已跳过网页材料：${source.title}（${message}）`
       };
     }
   }
 
   if (sources.length === 0) {
-    throw new Error("No source content could be fetched.");
+    throw new Error("没有成功获取任何网页内容。");
   }
 
   yield {
     type: "tool.started" as const,
     taskId,
-    tool: "report.synthesize",
-    summary: "Synthesize a formal markdown research report."
+    tool: "artifact.compose",
+    summary: "正在把已收集材料整理成正式 Markdown 交付物。"
   };
 
-  const report = await synthesizeResearchReport({
+  const report = await synthesizeTaskDeliverable({
     prompt,
     sources
   });
-  const markdown = formatReportMarkdown(report, sources);
-  const artifactFile = await writeReportArtifact({
+  const markdown = formatArtifactMarkdown(report, sources);
+  const artifactFile = await writeArtifactDocument({
     sessionId,
     taskId,
     report: markdown
@@ -108,8 +108,8 @@ export async function* runResearchReportTask({
   yield {
     type: "tool.finished" as const,
     taskId,
-    tool: "report.synthesize",
-    summary: `Report artifact ready: ${artifact.name}`
+    tool: "artifact.compose",
+    summary: `交付产物已生成：${artifact.name}`
   };
 
   yield {
@@ -124,19 +124,19 @@ export async function* runResearchReportTask({
     type: "task.status",
     taskId,
     status: "completed",
-    summary: "Formal research report generated and saved as an artifact."
+    summary: "正式交付物已生成并保存为产物。"
   };
 
   yield {
     type: "tool.finished" as const,
     taskId,
     tool: "task.complete",
-    summary: `Completed report workflow for ${artifact.name}.`
+    summary: `任务产出已完成：${artifact.name}。`
   };
 
   yield {
     type: "task.finished",
     taskId,
-    summary: `${report.executiveSummary}\n\nReport artifact: ${artifact.name}`
+    summary: `${report.executiveSummary}\n\n交付产物：${artifact.name}`
   };
 }

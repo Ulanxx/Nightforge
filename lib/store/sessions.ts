@@ -38,15 +38,33 @@ export async function getSessionById(sessionId: string) {
 }
 
 export async function getOrCreateSession(sessionId: string, title: string) {
-  return prisma.session.upsert({
+  const existing = await prisma.session.findUnique({
     where: { id: sessionId },
-    update: {
-      title,
-      updatedAt: new Date()
-    },
-    create: {
+    select: { id: true }
+  });
+
+  if (existing) {
+    return prisma.session.update({
+      where: { id: sessionId },
+      data: {
+        updatedAt: new Date()
+      }
+    });
+  }
+
+  return prisma.session.create({
+    data: {
       id: sessionId,
       title
+    }
+  });
+}
+
+export async function touchSession(sessionId: string) {
+  return prisma.session.update({
+    where: { id: sessionId },
+    data: {
+      updatedAt: new Date()
     }
   });
 }

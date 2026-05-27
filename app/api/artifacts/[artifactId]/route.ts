@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/store/prisma";
-import { readArtifact } from "@/lib/agent/research";
+import { readArtifactContent } from "@/lib/agent/web-input";
 
 export async function GET(_: Request, context: { params: Promise<{ artifactId: string }> }) {
   const { artifactId } = await context.params;
@@ -9,10 +9,10 @@ export async function GET(_: Request, context: { params: Promise<{ artifactId: s
   });
 
   if (!artifact) {
-    return NextResponse.json({ error: "Artifact not found." }, { status: 404 });
+    return NextResponse.json({ error: "未找到产物。" }, { status: 404 });
   }
 
-  const content = await readArtifact(artifact.storagePath);
+  const content = await readArtifactContent(artifact.storagePath);
 
   return new NextResponse(content, {
     headers: {

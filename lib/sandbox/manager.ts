@@ -1,3 +1,5 @@
+import { getSandboxBySessionId, touchSandbox, upsertSandbox } from "@/lib/store/sandboxes";
+
 export type SandboxStatus = "creating" | "ready" | "expired" | "error";
 
 export interface ManagedSandbox {
@@ -23,7 +25,25 @@ export function createSandboxManager(): SandboxManager {
 
       if (existing?.status === "ready") {
         existing.lastUsedAt = new Date();
+        await touchSandbox(sessionId).catch(() => undefined);
         return existing;
+      }
+
+      const persisted = await getSandboxBySessionId(sessionId);
+
+      if (persisted?.status === "ready") {
+        const sandbox: ManagedSandbox = {
+          sandboxId: persisted.sandboxId,
+          sessionId,
+          status: persisted.status as SandboxStatus,
+          createdAt: persisted.createdAt,
+          lastUsedAt: new Date(),
+          expiresAt: persisted.expiresAt ?? undefined
+        };
+
+        inMemorySandboxes.set(sessionId, sandbox);
+        await touchSandbox(sessionId);
+        return sandbox;
       }
 
       const sandbox: ManagedSandbox = {
@@ -35,11 +55,32 @@ export function createSandboxManager(): SandboxManager {
       };
 
       inMemorySandboxes.set(sessionId, sandbox);
+      await upsertSandbox({
+        sessionId,
+        sandboxId: sandbox.sandboxId,
+        status: sandbox.status,
+        expiresAt: sandbox.expiresAt
+      });
       return sandbox;
     },
     async reset(sessionId) {
       inMemorySandboxes.delete(sessionId);
-      return this.getOrCreate(sessionId);
+      const sandbox: ManagedSandbox = {
+        sandboxId: `local-placeholder-${crypto.randomUUID()}`,
+        sessionId,
+        status: "ready",
+        createdAt: new Date(),
+        lastUsedAt: new Date()
+      };
+
+      inMemorySandboxes.set(sessionId, sandbox);
+      await upsertSandbox({
+        sessionId,
+        sandboxId: sandbox.sandboxId,
+        status: sandbox.status,
+        expiresAt: sandbox.expiresAt
+      });
+      return sandbox;
     }
   };
 }

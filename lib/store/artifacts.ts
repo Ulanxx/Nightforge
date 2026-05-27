@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/store/prisma";
+import { touchSession } from "@/lib/store/sessions";
 
 export async function listSessionArtifacts(sessionId: string) {
   return prisma.artifact.findMany({
@@ -20,7 +21,7 @@ export async function createArtifact({
   mimeType: string;
   storagePath: string;
 }) {
-  return prisma.artifact.create({
+  const artifact = await prisma.artifact.create({
     data: {
       sessionId,
       taskId,
@@ -29,4 +30,8 @@ export async function createArtifact({
       storagePath
     }
   });
+
+  await touchSession(sessionId);
+
+  return artifact;
 }

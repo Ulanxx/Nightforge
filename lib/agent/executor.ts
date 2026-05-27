@@ -1,6 +1,7 @@
 import { serializeRuntimeEvent } from "@/lib/agent/events";
-import { continueTaskWithClarification } from "@/lib/agent/resume";
 import { createAgentRuntime } from "@/lib/agent/runtime";
+import { taskStatusSchema, type TaskStatus } from "@/lib/domain/task";
+import type { Permission } from "@/lib/policy/policy-engine";
 import { createEvent } from "@/lib/store/events";
 import { createMessage } from "@/lib/store/messages";
 import { updateTaskStatus } from "@/lib/store/tasks";
@@ -23,7 +24,7 @@ async function persistTaskFailure(taskId: string, sessionId: string, message: st
     {
       type: "task.finished" as const,
       taskId,
-      summary: `Task could not continue: ${message}`
+      summary: `任务无法继续：${message}`
     }
   ];
 
@@ -31,8 +32,8 @@ async function persistTaskFailure(taskId: string, sessionId: string, message: st
     await createEvent(taskId, event.type, serializeRuntimeEvent(event));
   }
 
-  await updateTaskStatus(taskId, "failed", `Task could not continue: ${message}`);
-  await createMessage(sessionId, "assistant", `Task could not continue: ${message}`);
+  await updateTaskStatus(taskId, "failed", `任务无法继续：${message}`);
+  await createMessage(sessionId, "assistant", `任务无法继续：${message}`);
 }
 
 export async function executeTaskInBackground({
@@ -44,27 +45,25 @@ export async function executeTaskInBackground({
   sessionId: string;
   taskId: string;
   message: string;
-  permissions: string[];
+  permissions: Permission[];
 }) {
   try {
     let finalSummary = "";
-    let finalStatus = "completed";
+    let finalStatus: TaskStatus = "completed";
 
     for await (const rawEvent of agentRuntime.runTask({
+      taskId,
       sessionId,
       message,
       permissions,
       mode: "full"
     })) {
-      const event = {
-        ...rawEvent,
-        taskId
-      };
+      const event = rawEvent;
 
       await createEvent(taskId, event.type, serializeRuntimeEvent(event));
 
       if (event.type === "task.status") {
-        finalStatus = event.status;
+        finalStatus = taskStatusSchema.parse(event.status);
       }
 
       if (event.type === "task.finished") {
@@ -75,7 +74,7 @@ export async function executeTaskInBackground({
     await updateTaskStatus(taskId, finalStatus, finalSummary);
     await createMessage(sessionId, "assistant", finalSummary);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown task execution error.";
+    const message = error instanceof Error ? error.message : "未知任务执行错误。";
     await persistTaskFailure(taskId, sessionId, message);
   }
 }
@@ -93,18 +92,20 @@ export async function continueTaskInBackground({
 }) {
   try {
     let finalSummary = "";
-    let finalStatus = "planning";
+    let finalStatus: TaskStatus = "completed";
+    const resumedPrompt = `${originalPrompt}\n\n用户补充信息：\n${clarificationAnswer}`;
 
-    for await (const event of continueTaskWithClarification({
-      sessionId,
+    for await (const event of agentRuntime.runTask({
       taskId,
-      originalPrompt,
-      clarificationAnswer
+      sessionId,
+      message: resumedPrompt,
+      permissions: ["network", "file.write", "artifact.export"],
+      mode: "full"
     })) {
       await createEvent(taskId, event.type, serializeRuntimeEvent(event));
 
       if (event.type === "task.status") {
-        finalStatus = event.status;
+        finalStatus = taskStatusSchema.parse(event.status);
       }
 
       if (event.type === "task.finished") {
@@ -115,7 +116,7 @@ export async function continueTaskInBackground({
     await updateTaskStatus(taskId, finalStatus, finalSummary);
     await createMessage(sessionId, "assistant", finalSummary);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown resume error.";
+    const message = error instanceof Error ? error.message : "未知恢复任务错误。";
     await persistTaskFailure(taskId, sessionId, message);
   }
 }

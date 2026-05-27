@@ -1,11 +1,15 @@
 import { z } from "zod";
-import { decideClarification } from "@/lib/agent/planning";
+import { buildExecutionPlanSteps, decideClarification, generateExecutionPlan } from "@/lib/agent/planning";
 import { runGeneralAgentTask } from "@/lib/agent/general";
+import type { Permission } from "@/lib/policy/policy-engine";
+
+const permissionSchema = z.custom<Permission>((value) => typeof value === "string");
 
 export const agentTaskInputSchema = z.object({
+  taskId: z.string().optional(),
   sessionId: z.string(),
   message: z.string().min(1),
-  permissions: z.array(z.string()).default([]),
+  permissions: z.array(permissionSchema).default([]),
   mode: z.enum(["full", "plan-only"]).default("full")
 });
 
@@ -31,7 +35,7 @@ export function createAgentRuntime(): AgentRuntime {
   return {
     async *runTask(input) {
       const parsed = agentTaskInputSchema.parse(input);
-      const taskId = crypto.randomUUID();
+      const taskId = parsed.taskId ?? crypto.randomUUID();
 
       try {
         yield {
@@ -44,7 +48,7 @@ export function createAgentRuntime(): AgentRuntime {
           type: "tool.started",
           taskId,
           tool: "llm.clarification",
-          summary: "Check whether the task needs clarification before research begins."
+          summary: "判断任务是否需要先澄清。"
         };
 
         const clarification = await decideClarification(parsed.message);
@@ -54,8 +58,8 @@ export function createAgentRuntime(): AgentRuntime {
           taskId,
           tool: "llm.clarification",
           summary: clarification.needsClarification
-            ? "Task needs clarification before planning."
-            : "Task is specific enough to start planning."
+            ? "任务需要先澄清。"
+            : "任务信息足够，可以开始规划。"
         };
 
         if (clarification.needsClarification && clarification.questions.length > 0) {
@@ -76,7 +80,7 @@ export function createAgentRuntime(): AgentRuntime {
           yield {
             type: "task.finished",
             taskId,
-            summary: `Before I start research, I need to clarify:\n${clarification.questions
+            summary: `开始执行前，我需要先澄清：\n${clarification.questions
               .map((question, index) => `${index + 1}. ${question}`)
               .join("\n")}`
           };
@@ -91,11 +95,19 @@ export function createAgentRuntime(): AgentRuntime {
           summary: clarification.reason
         };
 
+        const plan = await generateExecutionPlan(parsed.message);
+        yield {
+          type: "plan.updated",
+          taskId,
+          steps: buildExecutionPlanSteps(plan)
+        };
+
         if (parsed.mode === "full") {
           for await (const event of runGeneralAgentTask({
             sessionId: parsed.sessionId,
             taskId,
-            prompt: parsed.message
+            prompt: parsed.message,
+            permissions: parsed.permissions
           })) {
             yield event;
           }
@@ -106,10 +118,10 @@ export function createAgentRuntime(): AgentRuntime {
         yield {
           type: "task.finished",
           taskId,
-          summary: "Task is specific enough to continue planning."
+          summary: "任务信息足够，可以继续执行。"
         };
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Unknown runtime error.";
+        const message = error instanceof Error ? error.message : "未知运行时错误。";
 
         yield {
           type: "task.status",
@@ -127,7 +139,7 @@ export function createAgentRuntime(): AgentRuntime {
         yield {
           type: "task.finished",
           taskId,
-          summary: `Task could not continue: ${message}`
+          summary: `任务无法继续：${message}`
         };
       }
     }

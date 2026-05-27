@@ -36,16 +36,16 @@ const reportSchema = z.object({
   uncertainties: z.array(z.string()).min(1).max(4)
 });
 
-export type ResearchSource = {
+export type WebInputSource = {
   title: string;
   url: string;
   reason: string;
   content: string;
 };
 
-export type ResearchReport = z.infer<typeof reportSchema>;
+export type TaskDeliverable = z.infer<typeof reportSchema>;
 
-export async function selectResearchSources(prompt: string) {
+export async function selectWebSources(prompt: string) {
   try {
     return await createStructuredChatCompletion({
       schema: sourceSelectionSchema,
@@ -54,11 +54,11 @@ export async function selectResearchSources(prompt: string) {
         {
           role: "system",
           content:
-            "Choose 3 to 6 high-quality public web sources for a business-facing research report. Prioritize official product pages, official docs, pricing pages, and trusted comparison pages. Prefer URLs that are likely fetchable without login or bot challenges. Return only JSON."
+            "为当前任务选择 3 到 6 个高质量公开网页材料。优先选择官方页面、官方文档、价格页、说明页和可信对比页面。优先选择无需登录、不容易触发机器人拦截的 URL。必须只返回 JSON，字段内容使用中文。"
         },
         {
           role: "user",
-          content: `Research task:\n${prompt}`
+          content: `任务请求：\n${prompt}`
         }
       ]
     });
@@ -78,7 +78,7 @@ export async function fetchSourceContent(url: string) {
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch ${url}: ${response.status}`);
+      throw new Error(`抓取网页失败：${url}，状态码 ${response.status}`);
     }
 
     const html = await response.text();
@@ -97,7 +97,7 @@ export async function fetchSourceContent(url: string) {
   }
 }
 
-export async function writeReportArtifact({
+export async function writeArtifactDocument({
   sessionId,
   taskId,
   report
@@ -119,28 +119,28 @@ export async function writeReportArtifact({
   };
 }
 
-export async function synthesizeResearchReport({
+export async function synthesizeTaskDeliverable({
   prompt,
   sources
 }: {
   prompt: string;
-  sources: ResearchSource[];
+  sources: WebInputSource[];
 }) {
   return createStructuredChatCompletion({
     schema: reportSchema,
-    normalize: normalizeResearchReport,
+    normalize: normalizeTaskDeliverable,
     messages: [
-      {
-        role: "system",
-        content:
-          "You are writing a formal business-facing research report from source evidence. Return only JSON. Use concise, concrete language. Do not invent unsupported claims."
-      },
-      {
-        role: "user",
-        content: `Research request:\n${prompt}\n\nSources:\n${sources
+        {
+          role: "system",
+          content:
+          "你正在基于已收集材料撰写正式交付物。必须只返回 JSON，字段内容使用中文。语言要简洁、具体，不要编造没有材料支持的结论。"
+        },
+        {
+          role: "user",
+        content: `任务请求：\n${prompt}\n\n材料：\n${sources
           .map(
             (source, index) =>
-              `[${index + 1}] ${source.title}\nURL: ${source.url}\nWhy selected: ${source.reason}\nContent:\n${source.content.slice(0, 6000)}`
+              `[${index + 1}] ${source.title}\nURL: ${source.url}\n选择理由：${source.reason}\n内容：\n${source.content.slice(0, 6000)}`
           )
           .join("\n\n")}`
       }
@@ -148,7 +148,7 @@ export async function synthesizeResearchReport({
   });
 }
 
-export function formatReportMarkdown(report: ResearchReport, sources: ResearchSource[]) {
+export function formatArtifactMarkdown(report: TaskDeliverable, sources: WebInputSource[]) {
   const findings = report.keyFindings.map((finding) => `- ${finding}`).join("\n");
   const sections = report.sections.map((section) => `## ${section.heading}\n\n${section.content}`).join("\n\n");
   const uncertainties = report.uncertainties.map((item) => `- ${item}`).join("\n");
@@ -178,9 +178,11 @@ ${sourceList}
 `;
 }
 
-export async function readArtifact(storagePath: string) {
+export async function readArtifactContent(storagePath: string) {
   return readFile(storagePath, "utf8");
 }
+
+export const readArtifact = readArtifactContent;
 
 function normalizeSourceSelection(value: unknown) {
   if (Array.isArray(value)) {
@@ -227,9 +229,9 @@ function normalizeSourceItem(source: unknown, index: number) {
   if (typeof source === "string") {
     const hostname = safeHostname(source);
     return {
-      title: hostname ? hostname.replace(/^www\./, "") : `Source ${index + 1}`,
+      title: hostname ? hostname.replace(/^www\./, "") : `来源 ${index + 1}`,
       url: source,
-      reason: "Relevant public source selected for the report."
+      reason: "已为当前任务选择相关公开网页材料。"
     };
   }
 
@@ -264,11 +266,11 @@ function normalizeSourceItem(source: unknown, index: number) {
         ? item.reason
         : typeof item.description === "string"
           ? item.description
-          : "Relevant public source selected for the report."
+          : "为当前任务选择的相关公开网页材料。"
   };
 }
 
-function normalizeResearchReport(value: unknown) {
+function normalizeTaskDeliverable(value: unknown) {
   if (!value || typeof value !== "object") {
     return value;
   }
@@ -476,32 +478,32 @@ function buildFallbackSources(prompt: string) {
     {
       title: "Playwright",
       url: "https://playwright.dev/",
-      reason: "Official documentation for the leading developer-first browser automation framework."
+      reason: "开发者优先的浏览器自动化框架官方文档。"
     },
     {
       title: "Puppeteer",
       url: "https://pptr.dev/",
-      reason: "Official documentation for the core Chrome-focused browser automation library."
+      reason: "面向 Chrome 的浏览器自动化库官方文档。"
     },
     {
-      title: "Browserbase Pricing",
+      title: "Browserbase 价格页",
       url: "https://www.browserbase.com/pricing",
-      reason: "Commercial browser infrastructure pricing and packaging."
+      reason: "商业浏览器基础设施的价格与套餐信息。"
     },
     {
-      title: "Bardeen Pricing",
+      title: "Bardeen 价格页",
       url: "https://www.bardeen.ai/pricing",
-      reason: "Low-code workflow automation pricing for business users."
+      reason: "面向业务用户的低代码流程自动化价格信息。"
     },
     {
-      title: "UiPath Platform",
+      title: "UiPath 平台",
       url: "https://www.uipath.com/product",
-      reason: "Enterprise automation platform overview and positioning."
+      reason: "企业自动化平台概览与定位信息。"
     },
     {
-      title: "Playwright vs Puppeteer Guide",
+      title: "Playwright 与 Puppeteer 对比指南",
       url: "https://www.browserstack.com/guide/playwright-vs-puppeteer",
-      reason: "Public comparison source for developer-first tool tradeoffs."
+      reason: "开发者工具取舍的公开对比来源。"
     }
   ];
 
@@ -509,7 +511,7 @@ function buildFallbackSources(prompt: string) {
     sources[3] = {
       title: "Stagehand",
       url: "https://stagehand.dev/",
-      reason: "Official Stagehand product source."
+      reason: "Stagehand 官方产品来源。"
     };
   }
 

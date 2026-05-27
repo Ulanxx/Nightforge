@@ -7,6 +7,21 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum MessageRole {
+  user
+  assistant
+  system
+}
+
+enum TaskStatus {
+  planning
+  clarifying
+  executing
+  awaiting_input
+  completed
+  failed
+}
+
 model User {
   id        String    @id @default(cuid())
   email     String?   @unique
@@ -30,7 +45,7 @@ model Session {
 model Message {
   id        String   @id @default(cuid())
   sessionId String
-  role      String
+  role      MessageRole
   content   String
   createdAt DateTime @default(now())
   session   Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
@@ -39,7 +54,7 @@ model Message {
 model Task {
   id        String     @id @default(cuid())
   sessionId String
-  status    String
+  status    TaskStatus
   prompt    String
   summary   String?
   createdAt DateTime   @default(now())

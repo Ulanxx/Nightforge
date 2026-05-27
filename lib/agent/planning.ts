@@ -7,7 +7,7 @@ const clarificationDecisionSchema = z.object({
   questions: z.array(z.string()).max(3)
 });
 
-const researchPlanSchema = z.object({
+const executionPlanSchema = z.object({
   objective: z.string(),
   researchAngles: z.array(z.string()).min(1).max(8),
   reportSections: z.array(z.string()).min(1).max(8),
@@ -15,13 +15,13 @@ const researchPlanSchema = z.object({
 });
 
 export type ClarificationDecision = z.infer<typeof clarificationDecisionSchema>;
-export type ResearchPlan = z.infer<typeof researchPlanSchema>;
+export type ExecutionPlan = z.infer<typeof executionPlanSchema>;
 
 export async function decideClarification(message: string) {
   if (looksExecutionReady(message)) {
     return {
       needsClarification: false,
-      reason: "The request is specific enough to begin planning and research immediately.",
+      reason: "任务信息足够，可以立即开始执行。",
       questions: []
     };
   }
@@ -33,11 +33,11 @@ export async function decideClarification(message: string) {
       {
         role: "system",
         content:
-          "You are planning the first step of a business-facing research agent. Decide whether the user's task is specific enough to start research immediately. Ask at most 3 necessary clarification questions. Return only JSON."
+          "你是通用项目智能体的任务入口规划器，可以访问当前工作区。判断用户任务是否足够明确、能否立即开始执行。最多提出 3 个必要澄清问题。必须只返回 JSON，字段为 needsClarification、reason、questions；reason 和 questions 必须使用中文。"
       },
       {
         role: "user",
-        content: `Research request:\n${message}`
+        content: `任务请求：\n${message}`
       }
     ]
   });
@@ -45,22 +45,36 @@ export async function decideClarification(message: string) {
   return result;
 }
 
-export async function generateResearchPlan(message: string) {
+export async function generateExecutionPlan(message: string) {
   return createStructuredChatCompletion({
-    schema: researchPlanSchema,
-    normalize: normalizeResearchPlan,
+    schema: executionPlanSchema,
+    normalize: normalizeExecutionPlan,
     messages: [
       {
         role: "system",
         content:
-          "You are generating a concise research plan for a public-web research agent serving business users. Return only JSON. Keep the plan concrete and execution-ready."
+          "你是面向通用知识工作者的任务规划智能体，请为当前任务生成简洁、具体、可执行的执行计划。可以结合网页材料收集、文件处理和交付物生成来组织计划。必须只返回 JSON，字段内容使用中文。"
       },
       {
         role: "user",
-        content: `Research request:\n${message}`
+        content: `任务请求：\n${message}`
       }
     ]
   });
+}
+
+export function buildExecutionPlanSteps(plan: ExecutionPlan) {
+  const objective = compactPlanText(plan.objective, 100);
+  const sourceStrategy = compactPlanText(plan.sourceStrategy, 120);
+  const actionFocus = compactPlanList(plan.researchAngles, 2);
+  const deliveryShape = compactPlanList(plan.reportSections, 3);
+
+  return [
+    `明确目标：${objective}`,
+    `准备材料：${sourceStrategy}`,
+    `执行重点：${actionFocus}`,
+    `交付结果：${deliveryShape}`
+  ];
 }
 
 function normalizeClarificationDecision(value: unknown) {
@@ -69,6 +83,8 @@ function normalizeClarificationDecision(value: unknown) {
   }
 
   const record = value as Record<string, unknown>;
+  const needsClarification = record.needsClarification;
+  const needsClarificationSnake = record.needs_clarification;
   const isSpecificEnough = record.is_specific_enough;
   const specificEnough = record.specific_enough;
   const readyToStart = record.ready_to_start;
@@ -87,11 +103,13 @@ function normalizeClarificationDecision(value: unknown) {
 
   return {
     needsClarification:
-      typeof record.needsClarification === "boolean"
-        ? record.needsClarification
+      typeof needsClarification === "boolean"
+        ? needsClarification
+        : typeof needsClarificationSnake === "boolean"
+          ? needsClarificationSnake
         : typeof derivedSpecificity === "boolean"
           ? !derivedSpecificity
-          : record.needsClarification,
+          : false,
     reason:
       typeof record.reason === "string"
         ? record.reason
@@ -99,9 +117,13 @@ function normalizeClarificationDecision(value: unknown) {
           ? record.rationale
           : typeof derivedSpecificity === "boolean"
             ? derivedSpecificity
-              ? "The request is specific enough to begin planning."
-              : "The request needs clarification before planning."
-            : record.reason,
+              ? "任务信息足够，可以开始规划。"
+              : "任务需要先澄清。"
+            : typeof needsClarificationSnake === "boolean"
+              ? needsClarificationSnake
+                ? "任务需要先澄清。"
+                : "任务信息足够，可以开始执行。"
+              : "任务信息足够，可以开始执行。",
     questions: Array.isArray(record.questions)
       ? record.questions
       : Array.isArray(clarificationQuestions)
@@ -110,7 +132,7 @@ function normalizeClarificationDecision(value: unknown) {
   };
 }
 
-function normalizeResearchPlan(value: unknown) {
+function normalizeExecutionPlan(value: unknown) {
   if (!value || typeof value !== "object") {
     return value;
   }
@@ -177,19 +199,19 @@ function normalizeResearchPlan(value: unknown) {
     .slice(0, 5);
   const derivedSections = stepObjects
     .flatMap((step) => {
-      const action = typeof step.action === "string" ? [`Section: ${step.action}`] : [];
-      const description = typeof step.description === "string" ? [`Section: ${step.description}`] : [];
-      const output = typeof step.output === "string" ? [`Section: ${step.output}`] : [];
-      const task = typeof step.task === "string" ? [`Section: ${step.task}`] : [];
+      const action = typeof step.action === "string" ? [`章节：${step.action}`] : [];
+      const description = typeof step.description === "string" ? [`章节：${step.description}`] : [];
+      const output = typeof step.output === "string" ? [`章节：${step.output}`] : [];
+      const task = typeof step.task === "string" ? [`章节：${step.task}`] : [];
       const expectedOutput =
-        typeof step.expected_output === "string" ? [`Section: ${step.expected_output}`] : [];
+        typeof step.expected_output === "string" ? [`章节：${step.expected_output}`] : [];
       const sections = Array.isArray(step.sections)
         ? step.sections.filter((value): value is string => typeof value === "string")
         : [];
       const searchQuerySections = Array.isArray(step.search_queries)
         ? step.search_queries
             .filter((value): value is string => typeof value === "string")
-            .map((value) => `Section: ${value}`)
+            .map((value) => `章节：${value}`)
         : [];
       const actionSections =
         Array.isArray(step.actions)
@@ -240,7 +262,7 @@ function normalizeResearchPlan(value: unknown) {
         return [...query, ...queries, ...searchQueries, ...actionQueries];
       })
       .slice(0, 3)
-      .join(" | ") || "Use public web sources and prioritize high-quality official or product-facing materials.";
+      .join(" | ") || "如需补充外部信息，优先选择高质量的公开网页、官方材料或说明文档。";
 
   const reportOutline =
     record.report_outline && typeof record.report_outline === "object"
@@ -319,9 +341,9 @@ function normalizeResearchPlan(value: unknown) {
       : normalizedReportSections.length > 0
         ? unique([
             ...normalizedReportSections,
-            ...fallbackStrings.map((value) => `Section: ${value}`)
+            ...fallbackStrings.map((value) => `章节：${value}`)
           ]).slice(0, 6)
-        : fallbackStrings.map((value) => `Section: ${value}`).slice(0, 6);
+        : fallbackStrings.map((value) => `章节：${value}`).slice(0, 6);
 
   const sourceStrategy =
     typeof record.sourceStrategy === "string"
@@ -333,38 +355,92 @@ function normalizeResearchPlan(value: unknown) {
           : derivedSourceStrategy;
 
   return {
-    objective: objective || "Produce a business-facing research report from the clarified request.",
+    objective: objective || "基于已澄清的请求完成任务并交付可用结果。",
     researchAngles:
       researchAngles.length > 0
         ? researchAngles
-        : ["Competitive landscape", "Pricing and product fit"],
+        : ["竞争格局", "价格与产品适配度"],
     reportSections:
       reportSections.length > 0
         ? reportSections
-        : ["Executive Summary", "Analysis", "Sources"],
+        : ["目标与背景", "执行结果", "补充材料"],
     sourceStrategy
   };
 }
 
 function looksExecutionReady(message: string) {
   const normalized = message.toLowerCase();
+  const hasProjectAgentIntent =
+    normalized.includes("inspect") ||
+    normalized.includes("project") ||
+    normalized.includes("file") ||
+    normalized.includes("grep") ||
+    normalized.includes("read") ||
+    normalized.includes("write") ||
+    normalized.includes("edit") ||
+    normalized.includes("artifact") ||
+    normalized.includes("architecture") ||
+    normalized.includes("run") ||
+    normalized.includes("test") ||
+    normalized.includes("fix") ||
+    normalized.includes("implement") ||
+    normalized.includes("检查") ||
+    normalized.includes("项目") ||
+    normalized.includes("文件") ||
+    normalized.includes("搜索") ||
+    normalized.includes("读取") ||
+    normalized.includes("写入") ||
+    normalized.includes("编辑") ||
+    normalized.includes("产物") ||
+    normalized.includes("架构") ||
+    normalized.includes("运行") ||
+    normalized.includes("测试") ||
+    normalized.includes("修复") ||
+    normalized.includes("实现");
   const hasResearchIntent =
     normalized.includes("research") ||
     normalized.includes("report") ||
     normalized.includes("benchmark") ||
-    normalized.includes("formal");
+    normalized.includes("formal") ||
+    normalized.includes("调研") ||
+    normalized.includes("报告") ||
+    normalized.includes("基准") ||
+    normalized.includes("正式");
   const hasBusinessTarget =
     normalized.includes("smb") ||
     normalized.includes("saas") ||
     normalized.includes("product team") ||
     normalized.includes("engineering") ||
-    normalized.includes("business");
+    normalized.includes("business") ||
+    normalized.includes("中小企业") ||
+    normalized.includes("产品团队") ||
+    normalized.includes("工程") ||
+    normalized.includes("业务");
   const hasEvaluationCriteria =
     normalized.includes("cost") ||
     normalized.includes("ease of use") ||
     normalized.includes("integrations") ||
     normalized.includes("scalability") ||
-    normalized.includes("buyer");
+    normalized.includes("buyer") ||
+    normalized.includes("成本") ||
+    normalized.includes("易用") ||
+    normalized.includes("集成") ||
+    normalized.includes("扩展") ||
+    normalized.includes("买方");
 
-  return hasResearchIntent && hasBusinessTarget && hasEvaluationCriteria;
+  return hasProjectAgentIntent || (hasResearchIntent && hasBusinessTarget && hasEvaluationCriteria);
+}
+
+function compactPlanText(value: string, limit: number) {
+  const normalized = value.replace(/\s+/g, " ").trim();
+  return normalized.length > limit ? `${normalized.slice(0, limit).trim()}...` : normalized;
+}
+
+function compactPlanList(items: string[], take: number) {
+  const values = items
+    .map((item) => compactPlanText(item, 36))
+    .filter(Boolean)
+    .slice(0, take);
+
+  return values.length > 0 ? values.join("；") : "按当前上下文完成任务。";
 }
