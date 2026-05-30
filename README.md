@@ -1,6 +1,6 @@
 # deepagents-agent
 
-Manus-like general agent built on a Node.js control plane, DeepAgents JS, and E2B session sandboxes.
+General task execution agent built on a Node.js control plane, DeepAgents JS, and E2B session sandboxes.
 
 The first milestone is a web MVP:
 
@@ -10,9 +10,18 @@ The first milestone is a web MVP:
 - One persistent sandbox per user session.
 - Task-level permissions plus high-risk action approvals.
 
-See the initial design spec:
+Current direction:
+
+- open-ended task intake
+- minimum clarification before execution
+- visible execution planning
+- web, local files, and sandbox-backed actions in one task loop
+- direct reply, artifact, or mixed delivery depending on the task
+
+Key specs:
 
 - `docs/superpowers/specs/2026-05-24-manus-like-agent-design.md`
+- `docs/superpowers/specs/2026-05-26-general-task-execution-agent-product-plan.md`
 
 ## Development
 
@@ -28,9 +37,9 @@ Open `http://localhost:3000`.
 ## Current Scaffold
 
 - Next.js 16 App Router with TypeScript and Tailwind CSS.
-- Workspace-first UI for chat, permissions, events, risk queue, and artifacts.
-- Placeholder task API at `POST /api/tasks`.
-- Agent runtime interface in `lib/agent`.
+- Workspace-first UI for task progression, events, sandbox activity, and artifacts.
+- Task intake and continuation APIs at `POST /api/tasks` and `POST /api/tasks/:taskId/reply`.
+- Agent runtime and execution flow in `lib/agent`.
 - E2B sandbox manager interface in `lib/sandbox`.
 - Policy engine starter in `lib/policy`.
 - Prisma schema for sessions, tasks, messages, tool calls, approvals, artifacts, sandboxes, and event logs.
