@@ -7,7 +7,7 @@ import { ChatOpenAI } from "@langchain/openai";
 import { createDeepAgent, FilesystemBackend } from "deepagents";
 import { z } from "zod";
 import { getOpenRouterEnv } from "@/lib/config/env";
-import type { AgentRuntimeEvent } from "@/lib/agent/runtime";
+import type { AgentRuntimeEvent, ApprovedAction } from "@/lib/agent/runtime";
 import { fetchSourceContent, selectWebSources } from "@/lib/agent/web-input";
 import type { Permission } from "@/lib/policy/policy-engine";
 import { checkToolPolicy } from "@/lib/policy/policy-engine";
@@ -233,6 +233,28 @@ async function runSafeCommand(command: string) {
   }
 }
 
+function collectApprovedCommands(approvedActions: ApprovedAction[]) {
+  const commands = new Set<string>();
+
+  for (const action of approvedActions) {
+    if (action.tool !== "run_command" || !action.inputJson) {
+      continue;
+    }
+
+    try {
+      const input = JSON.parse(action.inputJson) as { command?: unknown };
+
+      if (typeof input.command === "string") {
+        commands.add(input.command);
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  return commands;
+}
+
 type DeliveryMode = "reply" | "artifact" | "mixed";
 
 function decideDeliveryMode(prompt: string): { mode: DeliveryMode; reason: string } {
@@ -355,14 +377,17 @@ export async function* runGeneralAgentTask({
   sessionId,
   taskId,
   prompt,
-  permissions = []
+  permissions = [],
+  approvedActions = []
 }: {
   sessionId: string;
   taskId: string;
   prompt: string;
   permissions?: Permission[];
+  approvedActions?: ApprovedAction[];
 }): AsyncIterable<AgentRuntimeEvent> {
   const deliveryDecision = decideDeliveryMode(prompt);
+  const approvedCommands = collectApprovedCommands(approvedActions);
 
   yield {
     type: "task.status",
@@ -415,6 +440,11 @@ export async function* runGeneralAgentTask({
 
   const runCommandTool = tool(
     async ({ command }) => {
+      if (approvedCommands.has(command)) {
+        approvedCommands.delete(command);
+        return runSafeCommand(command);
+      }
+
       const policy = checkToolPolicy({
         tool: "run_command",
         permissions,
@@ -425,8 +455,12 @@ export async function* runGeneralAgentTask({
         const approval = await createApprovalRequest({
           taskId,
           reason: policy.reason ?? "当前命令需要用户确认。",
-          risk: policy.risk
+          risk: policy.risk,
+          tool: "run_command",
+          inputJson: JSON.stringify({ command })
         });
+
+        const reason = policy.reason ?? "当前命令需要用户确认。";
 
         queue.push({
           kind: "event",
@@ -434,11 +468,21 @@ export async function* runGeneralAgentTask({
             type: "approval.required",
             taskId,
             approvalId: approval.id,
-            reason: policy.reason ?? "当前命令需要用户确认。"
+            reason
           }
         });
 
-        return `命令未执行：${policy.reason ?? "当前命令需要用户确认。"} 审批编号：${approval.id}`;
+        queue.push({
+          kind: "event",
+          event: {
+            type: "task.status",
+            taskId,
+            status: "awaiting_input",
+            summary: `任务等待用户确认：${reason}`
+          }
+        });
+
+        return `命令暂未执行：${reason} 审批编号：${approval.id}。在用户批准或拒绝前，必须停止当前任务并等待。`;
       }
 
       if (!policy.allowed) {
@@ -488,7 +532,7 @@ export async function* runGeneralAgentTask({
       { operations: ["read", "write"], paths: ["/**"] }
     ],
     systemPrompt:
-      "你是一个通用项目智能体，形态类似 Manus 的执行型工作者。必须全程使用中文：计划、工具使用说明、产物内容、最终回复都用中文。可以使用内置文件系统工具检查目录、grep 搜索、读取、写入和编辑文件。需要补充公开网页资料时，优先使用 collect_web_materials；如果已经有明确 URL，再使用 read_web_page。run_command 只用于安全的当前项目命令。用户要求可持久交付物、报告、文档、总结文件或 artifact/产物时，必须先调用 create_artifact 保存清晰的 Markdown 产物，然后再给最终回复；不要只说“我将创建”或“让我创建”。最终回复保持简洁，说明重要变更、读取过的关键文件、使用过的网页材料或创建的产物。"
+      "你是一个通用项目智能体，形态类似 Manus 的执行型工作者。必须全程使用中文：计划、工具使用说明、产物内容、最终回复都用中文。可以使用内置文件系统工具检查目录、grep 搜索、读取、写入和编辑文件。需要补充公开网页资料时，优先使用 collect_web_materials；如果已经有明确 URL，再使用 read_web_page。run_command 只用于安全的当前项目命令。如果 run_command 返回需要用户确认或审批编号，必须立即停止当前任务并等待用户处理，不要改用其他方式绕过，也不要继续生成最终产物。用户要求可持久交付物、报告、文档、总结文件或 artifact/产物时，必须先调用 create_artifact 保存清晰的 Markdown 产物，然后再给最终回复；不要只说“我将创建”或“让我创建”。最终回复保持简洁，说明重要变更、读取过的关键文件、使用过的网页材料或创建的产物。"
   });
 
   void (async () => {

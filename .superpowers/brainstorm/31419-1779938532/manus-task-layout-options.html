@@ -1,0 +1,126 @@
+<h2>Which Workspace Structure Feels Closest to Manus?</h2>
+<p class="subtitle">重点只看任务页：怎么进一步弱化会话列表、聊天壳子和控制台感，同时保住执行过程可见。</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">A. Left Rail Still Visible</div>
+        <div class="mockup-body">
+          <div style="display:grid;grid-template-columns:180px 1fr 260px;gap:0;min-height:280px;">
+            <div style="border-right:1px solid #d7dde6;background:#f4f6f8;padding:12px;">
+              <div class="label">Tasks</div>
+              <div style="display:grid;gap:8px;margin-top:10px;">
+                <div style="border:1px solid #0f766e;border-radius:10px;padding:8px;background:#fff;">Current</div>
+                <div style="border:1px solid #d7dde6;border-radius:10px;padding:8px;background:#fff;">History</div>
+              </div>
+            </div>
+            <div style="padding:12px;background:#fcfdfd;display:grid;grid-template-rows:auto auto 1fr auto;gap:10px;">
+              <div style="height:44px;border-radius:12px;background:#fff;border:1px solid #d7dde6;"></div>
+              <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
+                <div class="placeholder"></div><div class="placeholder"></div><div class="placeholder"></div><div class="placeholder"></div>
+              </div>
+              <div style="display:grid;gap:8px;">
+                <div class="placeholder" style="height:64px;"></div>
+                <div class="placeholder" style="height:64px;"></div>
+                <div class="placeholder" style="height:64px;"></div>
+              </div>
+              <div class="mock-input">follow-up input</div>
+            </div>
+            <div style="border-left:1px solid #d7dde6;background:#f7f9fb;padding:12px;display:grid;gap:8px;">
+              <div class="placeholder" style="height:64px;"></div>
+              <div class="placeholder" style="height:64px;"></div>
+              <div class="placeholder" style="height:64px;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A. 保守改造</h3>
+      <p>最接近你现在的结构，只是更收敛。风险低，但会继续保留“左栏很重”的感觉。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">B. Canvas First, Navigation Hidden</div>
+        <div class="mockup-body">
+          <div style="display:grid;grid-template-columns:1fr 280px;min-height:280px;">
+            <div style="padding:14px;background:#fcfdfd;display:grid;grid-template-rows:auto auto 1fr auto;gap:10px;">
+              <div style="display:flex;justify-content:space-between;gap:12px;">
+                <div style="flex:1;height:46px;border-radius:12px;background:#fff;border:1px solid #d7dde6;"></div>
+                <div style="width:80px;height:32px;border-radius:999px;background:#eef9f7;border:1px solid #cfe3e0;"></div>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
+                <div class="placeholder"></div><div class="placeholder"></div><div class="placeholder"></div><div class="placeholder"></div>
+              </div>
+              <div style="display:grid;gap:8px;">
+                <div class="placeholder" style="height:72px;"></div>
+                <div class="placeholder" style="height:120px;"></div>
+                <div class="placeholder" style="height:72px;"></div>
+              </div>
+              <div class="mock-input">follow-up input</div>
+            </div>
+            <div style="border-left:1px solid #d7dde6;background:#f7f9fb;padding:12px;display:grid;gap:8px;align-content:start;">
+              <div class="placeholder" style="height:72px;"></div>
+              <div class="placeholder" style="height:72px;"></div>
+              <div class="placeholder" style="height:72px;"></div>
+              <div class="placeholder" style="height:72px;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B. Manus-first</h3>
+      <p>把任务主画布做成真正中心，历史与导航退到更弱入口。最像 Manus，也最符合“执行过程可见”优先级。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">C. Results Dominant</div>
+        <div class="mockup-body">
+          <div style="display:grid;grid-template-rows:auto 1fr auto;min-height:280px;padding:14px;background:#fcfdfd;gap:10px;">
+            <div style="height:44px;border-radius:12px;background:#fff;border:1px solid #d7dde6;"></div>
+            <div style="display:grid;grid-template-columns:1.2fr .8fr;gap:10px;">
+              <div class="placeholder" style="height:190px;"></div>
+              <div style="display:grid;gap:8px;">
+                <div class="placeholder" style="height:58px;"></div>
+                <div class="placeholder" style="height:58px;"></div>
+                <div class="placeholder" style="height:58px;"></div>
+              </div>
+            </div>
+            <div class="mock-input">follow-up input</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C. 结果优先</h3>
+      <p>更像生成式结果页，不够像 Manus 的“任务执行中”空间，容易偏向 Genspark 或 artifact app。</p>
+    </div>
+  </div>
+</div>
+
+<div class="pros-cons">
+  <div class="pros">
+    <h4>我推荐 B</h4>
+    <ul>
+      <li>最能去掉当前“传统左栏控制台”的既视感</li>
+      <li>主画布能容纳任务阶段、当前执行、结果沉淀</li>
+      <li>右栏还能保住审批、产物、沙箱这些可见性</li>
+    </ul>
+  </div>
+  <div class="cons">
+    <h4>B 的代价</h4>
+    <ul>
+      <li>会话列表会退到更弱入口，老用户需要重新适应</li>
+      <li>聊天连续性会被刻意降级成辅助层</li>
+      <li>需要重拆现有任务页组件边界</li>
+    </ul>
+  </div>
+</div>

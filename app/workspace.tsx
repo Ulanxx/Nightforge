@@ -25,7 +25,7 @@ import {
   Wrench
 } from "lucide-react";
 import { displayTaskStatus, nonRunningTaskStatuses, terminalTaskStatuses } from "@/lib/domain/task";
-import type { ArtifactItem, EventItem, MessageItem, SandboxItem, SessionSummary, TaskSummary } from "@/lib/workspace-view";
+import type { ApprovalItem, ArtifactItem, EventItem, MessageItem, SandboxItem, SessionSummary, TaskSummary } from "@/lib/workspace-view";
 
 type WorkspaceProps = {
   activeSessionId: string | null;
@@ -35,6 +35,7 @@ type WorkspaceProps = {
   events: EventItem[];
   artifacts: ArtifactItem[];
   sandbox: SandboxItem | null;
+  approvals: ApprovalItem[];
   activeTaskId: string | null;
   activeTaskStatus: string | null;
   activeTaskPrompt: string | null;
@@ -51,6 +52,7 @@ const eventIconMap = {
   "tool.finished": CheckCircle2,
   "task.failed": CircleAlert,
   "approval.required": ShieldCheck,
+  "approval.resolved": ShieldCheck,
   "task.finished": FileText
 } as const;
 
@@ -80,6 +82,7 @@ const eventLabels: Record<string, string> = {
   "tool.finished": "工具完成",
   "task.failed": "任务失败",
   "approval.required": "需要确认",
+  "approval.resolved": "确认已处理",
   "task.finished": "任务结束"
 };
 
@@ -221,6 +224,8 @@ function summarizeEvent(event: EventItem) {
       return formatToolSummary(event.payload.summary);
     case "approval.required":
       return event.payload.reason;
+    case "approval.resolved":
+      return event.payload.reason;
     case "task.finished":
       return translateKnownSummary(event.payload.summary);
     default:
@@ -290,6 +295,7 @@ export function Workspace({
   events,
   artifacts,
   sandbox,
+  approvals,
   activeTaskId,
   activeTaskStatus,
   activeTaskPrompt,
@@ -416,6 +422,16 @@ export function Workspace({
     });
   }
 
+  async function resolveApproval(approvalId: string, action: "approve" | "deny") {
+    await fetch(`/api/approvals/${approvalId}/${action}`, {
+      method: "POST"
+    });
+
+    startTransition(() => {
+      router.refresh();
+    });
+  }
+
   const activeSession = sessions.find((session) => session.id === activeSessionId) ?? null;
   const latestPlan = [...liveEvents].reverse().find((event) => event.payload?.type === "plan.updated");
   const latestClarification = [...liveEvents]
@@ -426,6 +442,7 @@ export function Workspace({
     () => artifacts.filter((artifact) => artifact.taskId === activeTaskId),
     [activeTaskId, artifacts]
   );
+  const pendingApprovals = useMemo(() => approvals.filter((approval) => approval.status === "pending"), [approvals]);
   const toolEvents = useMemo(
     () =>
       liveEvents.filter(
@@ -789,6 +806,51 @@ export function Workspace({
                   </div>
                 );
               })}
+            </div>
+          </section>
+
+          <section className="rounded-[var(--radius-lg)] border border-[var(--line)] bg-[var(--panel)] p-5 shadow-[var(--shadow-soft)]">
+            <p className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.18em] text-[var(--muted)]">
+              <ShieldCheck size={14} />
+              待处理确认
+            </p>
+            <div className="mt-4 space-y-3">
+              {pendingApprovals.length === 0 ? (
+                <div className="rounded-[var(--radius-md)] border border-dashed border-[var(--line)] p-3 text-sm text-[var(--muted)]">
+                  当前任务没有待处理确认。
+                </div>
+              ) : null}
+              {pendingApprovals.map((approval) => (
+                <div className="rounded-[var(--radius-md)] border border-[var(--line)] bg-white/70 p-3" key={approval.id}>
+                  <p className="text-sm font-semibold text-[var(--foreground)]">{approval.reason}</p>
+                  <p className="mt-2 text-xs leading-6 text-[var(--muted)]">
+                    风险等级：{approval.risk} · 创建于 {formatSessionTime(approval.createdAt)}
+                  </p>
+                  {approval.command ? (
+                    <p className="mt-2 break-all rounded-[var(--radius-sm)] bg-[var(--surface)] px-2 py-1 font-mono text-[11px] leading-5 text-[var(--foreground)]">
+                      {approval.command}
+                    </p>
+                  ) : null}
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      className="inline-flex h-9 items-center justify-center rounded-full bg-[var(--foreground)] px-4 text-sm font-semibold text-white disabled:opacity-50"
+                      disabled={isPending}
+                      onClick={() => void resolveApproval(approval.id, "approve")}
+                      type="button"
+                    >
+                      批准
+                    </button>
+                    <button
+                      className="inline-flex h-9 items-center justify-center rounded-full border border-[var(--line)] bg-white px-4 text-sm font-semibold text-[var(--foreground)] disabled:opacity-50"
+                      disabled={isPending}
+                      onClick={() => void resolveApproval(approval.id, "deny")}
+                      type="button"
+                    >
+                      拒绝
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
           </section>
 

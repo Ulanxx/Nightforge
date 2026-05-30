@@ -2,10 +2,14 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   createTaskRequestSchema,
+  internalTaskApprovalRequestSchema,
   internalTaskReplyRequestSchema,
   internalTaskRunRequestSchema,
   taskReplyRequestSchema
 } from "@/lib/api/schemas";
+import { buildApprovalResumePrompt } from "@/lib/agent/executor";
+import { resolveApprovalRoute } from "@/lib/api/approval-resolution";
+import { collectUndeliveredTaskEvents } from "@/lib/api/task-events";
 import { formatSseEvent } from "@/lib/agent/events";
 import { buildExecutionPlanSteps } from "@/lib/agent/planning";
 import {
@@ -74,6 +78,21 @@ test("internal task reply schema validates clarification payload", () => {
 
   assert.equal(parsed.originalPrompt, "original");
   assert.equal(parsed.message, "answer");
+});
+
+test("internal task approval schema preserves approved action context", () => {
+  const parsed = internalTaskApprovalRequestSchema.parse({
+    sessionId: "session-1",
+    taskId: "task-1",
+    originalPrompt: "original",
+    approvalId: "approval-1",
+    tool: "run_command",
+    inputJson: '{"command":"npm install"}'
+  });
+
+  assert.equal(parsed.approvalId, "approval-1");
+  assert.equal(parsed.tool, "run_command");
+  assert.equal(parsed.inputJson, '{"command":"npm install"}');
 });
 
 test("buildExecutionPlanSteps produces stable user-facing plan sections", () => {
@@ -153,4 +172,96 @@ test("formatSseEvent emits event-stream payload", () => {
   const payload = formatSseEvent({ id: "evt-1", type: "task.status" }, "task-event");
 
   assert.equal(payload, 'event: task-event\ndata: {"id":"evt-1","type":"task.status"}\n\n');
+});
+
+test("collectUndeliveredTaskEvents only returns unseen events", async () => {
+  const deliveredIds = new Set<string>(["evt-1"]);
+  const events = await collectUndeliveredTaskEvents({
+    taskId: "task-1",
+    deliveredIds,
+    loadEvents: async () =>
+      [
+        {
+          id: "evt-1",
+          type: "task.status",
+          createdAt: new Date("2026-01-01T00:00:00.000Z"),
+          payload: '{"type":"task.status","taskId":"task-1","status":"executing","summary":"running"}'
+        },
+        {
+          id: "evt-2",
+          type: "task.finished",
+          createdAt: new Date("2026-01-01T00:00:01.000Z"),
+          payload: '{"type":"task.finished","taskId":"task-1","summary":"done"}'
+        }
+      ] as never
+  });
+
+  assert.equal(events.length, 1);
+  assert.equal(events[0]?.id, "evt-2");
+  assert.equal(deliveredIds.has("evt-2"), true);
+});
+
+test("buildApprovalResumePrompt includes exact approved command", () => {
+  const prompt = buildApprovalResumePrompt("继续完成项目检查。", {
+    approvalId: "approval-1",
+    tool: "run_command",
+    inputJson: '{"command":"npm install"}'
+  });
+
+  assert.match(prompt, /已批准命令：`npm install`/);
+  assert.match(prompt, /其他受控动作/);
+});
+
+test("resolveApprovalRoute approves pending requests, updates status, and resumes", async () => {
+  const createdEvents: Array<{ taskId: string; type: string; payload: string }> = [];
+  const resolvedCalls: Array<{ approvalId: string; status: string }> = [];
+  const statusUpdates: Array<{ taskId: string; status: string; summary: string | undefined }> = [];
+  const resumedApprovals: string[] = [];
+  const response = await resolveApprovalRoute("approval-1", "approved", {
+    getApprovalRequestById: async () =>
+      ({
+        id: "approval-1",
+        taskId: "task-1",
+        status: "pending",
+        reason: "需要安装依赖。",
+        risk: "medium",
+        tool: "run_command",
+        inputJson: '{"command":"npm install"}',
+        createdAt: new Date(),
+        resolvedAt: null
+      }) as never,
+    resolveApprovalRequest: async ({ approvalId, status }) => {
+      resolvedCalls.push({ approvalId, status });
+      return {} as never;
+    },
+    createEvent: async (taskId, type, payload) => {
+      createdEvents.push({ taskId, type, payload });
+      return {} as never;
+    },
+    getTaskById: async () =>
+      ({
+        id: "task-1",
+        sessionId: "session-1",
+        prompt: "继续完成项目检查。",
+        status: "awaiting_input",
+        summary: null,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }) as never,
+    updateTaskStatus: async (taskId, status, summary) => {
+      statusUpdates.push({ taskId, status, summary });
+      return {} as never;
+    },
+    resumeApprovedTask: ({ approval }) => {
+      resumedApprovals.push(approval.id);
+    }
+  });
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(resolvedCalls, [{ approvalId: "approval-1", status: "approved" }]);
+  assert.equal(createdEvents.length, 1);
+  assert.equal(createdEvents[0]?.taskId, "task-1");
+  assert.equal(createdEvents[0]?.type, "approval.resolved");
+  assert.deepEqual(statusUpdates.map((update) => update.status), ["planning"]);
+  assert.deepEqual(resumedApprovals, ["approval-1"]);
 });

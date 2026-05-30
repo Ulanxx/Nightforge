@@ -1,0 +1,163 @@
+<h2>Manus-First Product Structure</h2>
+<p class="subtitle">目标：把当前“控制台 + 聊天壳子”重排成“任务主画布 + 辅助上下文层”，同时保住执行过程可见。</p>
+
+<div class="section">
+  <div class="mockup">
+    <div class="mockup-header">Overall Information Architecture</div>
+    <div class="mockup-body">
+      <div style="display:grid;grid-template-columns:1.1fr .9fr;gap:20px;align-items:start;">
+        <div style="display:grid;gap:14px;">
+          <div style="border:1px solid #d7dde6;border-radius:14px;padding:14px;background:#fff;">
+            <div class="label">Entry</div>
+            <h3 style="margin:6px 0 8px;">Home Becomes a Mission Intake Surface</h3>
+            <p style="margin:0;color:#6b7280;">弱化“历史列表 + 海报式营销”，改成更接近 Manus 的任务入口：一个强输入区，附带最近任务与继续入口。</p>
+          </div>
+          <div style="border:1px solid #d7dde6;border-radius:14px;padding:14px;background:#fff;">
+            <div class="label">Core</div>
+            <h3 style="margin:6px 0 8px;">Task Workspace Becomes the Product Center</h3>
+            <p style="margin:0;color:#6b7280;">进入任务后，不再以聊天为中心，而是以任务轨道、执行阶段、结果沉淀为中心。对话只作为补充输入层。</p>
+          </div>
+          <div style="border:1px solid #d7dde6;border-radius:14px;padding:14px;background:#fff;">
+            <div class="label">Trust</div>
+            <h3 style="margin:6px 0 8px;">Approvals, Files, Artifacts Stay Visible but Secondary</h3>
+            <p style="margin:0;color:#6b7280;">执行过程仍可见，但被组织到右侧辅助层，而不是把整个页面做成传统运维控制台。</p>
+          </div>
+        </div>
+        <div style="border:1px solid #d7dde6;border-radius:18px;background:#fbfcfd;padding:16px;">
+          <div class="label">Flow</div>
+          <div style="display:grid;gap:10px;margin-top:10px;">
+            <div style="border-radius:12px;background:#eef2f6;padding:10px 12px;">1. User delegates a task</div>
+            <div style="text-align:center;color:#0f766e;">↓</div>
+            <div style="border-radius:12px;background:#eef2f6;padding:10px 12px;">2. Workspace opens immediately</div>
+            <div style="text-align:center;color:#0f766e;">↓</div>
+            <div style="border-radius:12px;background:#eef2f6;padding:10px 12px;">3. Clarify / plan / execute on one canvas</div>
+            <div style="text-align:center;color:#0f766e;">↓</div>
+            <div style="border-radius:12px;background:#eef2f6;padding:10px 12px;">4. Result, artifacts, approvals remain attached to the task</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="mockup">
+    <div class="mockup-header">Homepage Direction</div>
+    <div class="mockup-body">
+      <div style="border:1px solid #d7dde6;border-radius:20px;overflow:hidden;background:#fff;">
+        <div style="display:grid;grid-template-columns:260px 1fr;min-height:320px;">
+          <div style="background:#f4f6f8;border-right:1px solid #d7dde6;padding:18px;display:grid;grid-template-rows:auto auto 1fr;">
+            <div>
+              <div class="label">Recent Tasks</div>
+              <div style="margin-top:12px;display:grid;gap:10px;">
+                <div style="border:1px solid #d7dde6;border-radius:12px;padding:10px;background:#fff;">Competitive analysis draft</div>
+                <div style="border:1px solid #d7dde6;border-radius:12px;padding:10px;background:#fff;">Project architecture notes</div>
+              </div>
+            </div>
+          </div>
+          <div style="padding:24px 26px;display:grid;align-content:center;gap:18px;background:linear-gradient(180deg,#ffffff 0%,#f8fbfb 100%);">
+            <div class="label">Delegate a task</div>
+            <h3 style="font-size:34px;line-height:1.1;margin:0;">One input, no templates, no dashboard noise.</h3>
+            <p style="margin:0;color:#6b7280;max-width:700px;">像 Manus 一样，首页的核心不是展示控制台，而是让用户立刻把任务交出去。</p>
+            <div style="border:1px solid #d7dde6;border-radius:22px;padding:18px;background:#fbfcfd;">
+              <div style="height:90px;border-radius:14px;background:#fff;border:1px solid #e4e8ee;padding:14px;color:#9ca3af;">Describe what you want done...</div>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;">
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                  <span style="border:1px solid #d7dde6;border-radius:999px;padding:6px 10px;">Summarize files</span>
+                  <span style="border:1px solid #d7dde6;border-radius:999px;padding:6px 10px;">Research with web</span>
+                  <span style="border:1px solid #d7dde6;border-radius:999px;padding:6px 10px;">Generate deliverable</span>
+                </div>
+                <button class="mock-button">Start Task</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="mockup">
+    <div class="mockup-header">Task Workspace Direction</div>
+    <div class="mockup-body">
+      <div style="border:1px solid #d7dde6;border-radius:20px;overflow:hidden;background:#fff;">
+        <div style="display:grid;grid-template-columns:220px 1fr 320px;min-height:470px;">
+          <div style="background:#f4f6f8;border-right:1px solid #d7dde6;padding:16px;display:grid;grid-template-rows:auto 1fr auto;gap:14px;">
+            <div>
+              <div class="label">Tasks</div>
+              <div style="margin-top:12px;display:grid;gap:8px;">
+                <div style="border:1px solid #0f766e;border-radius:12px;padding:10px;background:#fff;">Active mission</div>
+                <div style="border:1px solid #d7dde6;border-radius:12px;padding:10px;background:#fff;">Older task</div>
+              </div>
+            </div>
+            <div></div>
+            <div style="font-size:12px;color:#6b7280;">Session history is present, but not visually dominant.</div>
+          </div>
+          <div style="padding:18px;display:grid;grid-template-rows:auto auto 1fr auto;gap:14px;background:#fcfdfd;">
+            <div style="display:flex;justify-content:space-between;align-items:start;gap:12px;">
+              <div>
+                <div class="label">Mission</div>
+                <h3 style="margin:8px 0 6px;">Prepare a structured architecture review</h3>
+                <p style="margin:0;color:#6b7280;">The center is the task track, not the chat transcript.</p>
+              </div>
+              <div style="border:1px solid #cfe3e0;background:#eef9f7;color:#0f766e;border-radius:999px;padding:8px 12px;font-size:12px;font-weight:600;">Executing</div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;">
+              <div style="border:1px solid #d7dde6;border-radius:12px;padding:10px;background:#fff;">Clarify</div>
+              <div style="border:1px solid #0f766e;border-radius:12px;padding:10px;background:#f2fbfa;">Plan</div>
+              <div style="border:1px solid #0f766e;border-radius:12px;padding:10px;background:#f2fbfa;">Execute</div>
+              <div style="border:1px solid #d7dde6;border-radius:12px;padding:10px;background:#fff;">Deliver</div>
+            </div>
+            <div style="display:grid;gap:12px;">
+              <div style="border:1px solid #d7dde6;border-radius:14px;padding:14px;background:#fff;">
+                <div class="label">Current Thinking</div>
+                <p style="margin:10px 0 0;color:#111827;">A short visible plan, current execution focus, and latest result block live here.</p>
+              </div>
+              <div style="border:1px solid #d7dde6;border-radius:14px;padding:14px;background:#fff;">
+                <div class="label">Execution Timeline</div>
+                <p style="margin:10px 0 0;color:#6b7280;">Events become a readable timeline, not raw log cards everywhere.</p>
+              </div>
+              <div style="border:1px solid #d7dde6;border-radius:14px;padding:14px;background:#fff;">
+                <div class="label">Follow-up Input</div>
+                <p style="margin:10px 0 0;color:#6b7280;">Chat-like continuation remains, but as the bottom action rail, not the main layout metaphor.</p>
+              </div>
+            </div>
+            <div style="border:1px solid #d7dde6;border-radius:18px;padding:12px;background:#fff;color:#9ca3af;">Add instruction or answer clarification...</div>
+          </div>
+          <div style="background:#f7f9fb;border-left:1px solid #d7dde6;padding:16px;display:grid;gap:12px;align-content:start;">
+            <div style="border:1px solid #d7dde6;border-radius:14px;padding:12px;background:#fff;">
+              <div class="label">Artifacts</div>
+              <p style="margin:8px 0 0;color:#6b7280;">Files and deliverables stay attached to the current task.</p>
+            </div>
+            <div style="border:1px solid #d7dde6;border-radius:14px;padding:12px;background:#fff;">
+              <div class="label">Approvals</div>
+              <p style="margin:8px 0 0;color:#6b7280;">Actionable approvals live here, not buried in event cards.</p>
+            </div>
+            <div style="border:1px solid #d7dde6;border-radius:14px;padding:12px;background:#fff;">
+              <div class="label">Sandbox & Tools</div>
+              <p style="margin:8px 0 0;color:#6b7280;">Execution visibility is preserved, but organized into a quieter secondary rail.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>方向正确</h3>
+      <p>这个信息架构已经明显更像 Manus，可以继续细化页面层级和关键交互。</p>
+    </div>
+  </div>
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>还不够像 Manus</h3>
+      <p>需要进一步弱化会话列表、聊天痕迹或控制台感。</p>
+    </div>
+  </div>
+</div>

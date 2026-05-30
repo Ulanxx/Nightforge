@@ -82,6 +82,8 @@ model ApprovalRequest {
   status    String
   reason    String
   risk      String
+  tool      String?
+  inputJson String?
   createdAt DateTime @default(now())
   resolvedAt DateTime?
   task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)

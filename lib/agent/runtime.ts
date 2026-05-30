@@ -4,16 +4,23 @@ import { runGeneralAgentTask } from "@/lib/agent/general";
 import type { Permission } from "@/lib/policy/policy-engine";
 
 const permissionSchema = z.custom<Permission>((value) => typeof value === "string");
+const approvedActionSchema = z.object({
+  approvalId: z.string(),
+  tool: z.string().nullable().optional(),
+  inputJson: z.string().nullable().optional()
+});
 
 export const agentTaskInputSchema = z.object({
   taskId: z.string().optional(),
   sessionId: z.string(),
   message: z.string().min(1),
   permissions: z.array(permissionSchema).default([]),
+  approvedActions: z.array(approvedActionSchema).default([]),
   mode: z.enum(["full", "plan-only"]).default("full")
 });
 
 export type AgentTaskInput = z.infer<typeof agentTaskInputSchema>;
+export type ApprovedAction = z.infer<typeof approvedActionSchema>;
 
 export type AgentRuntimeEvent =
   | { type: "task.started"; taskId: string; message: string }
@@ -25,6 +32,7 @@ export type AgentRuntimeEvent =
   | { type: "tool.finished"; taskId: string; tool: string; summary: string }
   | { type: "task.failed"; taskId: string; error: string }
   | { type: "approval.required"; taskId: string; approvalId: string; reason: string }
+  | { type: "approval.resolved"; taskId: string; approvalId: string; status: "approved" | "denied"; reason: string }
   | { type: "task.finished"; taskId: string; summary: string };
 
 export interface AgentRuntime {
@@ -107,7 +115,8 @@ export function createAgentRuntime(): AgentRuntime {
             sessionId: parsed.sessionId,
             taskId,
             prompt: parsed.message,
-            permissions: parsed.permissions
+            permissions: parsed.permissions,
+            approvedActions: parsed.approvedActions
           })) {
             yield event;
           }

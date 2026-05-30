@@ -39,7 +39,8 @@ export type EventPayload =
   | { type: "artifact.created"; artifactId: string; name: string; mimeType: string | null }
   | { type: "tool.started" | "tool.finished"; tool: string; summary: string }
   | { type: "task.failed"; error: string }
-  | { type: "approval.required"; reason: string }
+  | { type: "approval.required"; approvalId: string; reason: string }
+  | { type: "approval.resolved"; approvalId: string; status: "approved" | "denied"; reason: string }
   | { type: "task.finished"; summary: string }
   | null;
 
@@ -66,6 +67,17 @@ export type SandboxItem = {
   expiresAt: string | null;
 };
 
+export type ApprovalItem = {
+  id: string;
+  status: string;
+  reason: string;
+  risk: string;
+  tool: string | null;
+  command: string | null;
+  createdAt: string;
+  resolvedAt: string | null;
+};
+
 export type SessionWorkspaceData = {
   activeSessionId: string | null;
   activeTaskId: string | null;
@@ -78,10 +90,24 @@ export type SessionWorkspaceData = {
   events: EventItem[];
   artifacts: ArtifactItem[];
   sandbox: SandboxItem | null;
+  approvals: ApprovalItem[];
 };
 
 function parseTaskStatus(status: string): TaskStatus {
   return taskStatusSchema.parse(status);
+}
+
+function parseApprovalCommand(inputJson: string | null) {
+  if (!inputJson) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(inputJson) as { command?: unknown };
+    return typeof parsed.command === "string" ? parsed.command : null;
+  } catch {
+    return null;
+  }
 }
 
 function parseMessageRole(role: string): MessageRole {
@@ -130,7 +156,8 @@ export async function getSessionWorkspaceData(
       messages: [],
       events: [],
       artifacts: [],
-      sandbox: null
+      sandbox: null,
+      approvals: []
     };
   }
 
@@ -158,6 +185,12 @@ export async function getSessionWorkspaceData(
     ? await prisma.eventLog.findMany({
         where: { taskId: activeTaskId },
         orderBy: { createdAt: "asc" }
+      })
+    : [];
+  const approvals = activeTaskId
+    ? await prisma.approvalRequest.findMany({
+        where: { taskId: activeTaskId },
+        orderBy: { createdAt: "desc" }
       })
     : [];
 
@@ -201,6 +234,16 @@ export async function getSessionWorkspaceData(
           lastUsedAt: session.sandbox.lastUsedAt.toISOString(),
           expiresAt: session.sandbox.expiresAt?.toISOString() ?? null
         }
-      : null
+      : null,
+    approvals: approvals.map((approval) => ({
+      id: approval.id,
+      status: approval.status,
+      reason: approval.reason,
+      risk: approval.risk,
+      tool: approval.tool,
+      command: parseApprovalCommand(approval.inputJson),
+      createdAt: approval.createdAt.toISOString(),
+      resolvedAt: approval.resolvedAt?.toISOString() ?? null
+    }))
   };
 }

@@ -1,15 +1,7 @@
 import { NextResponse } from "next/server";
-import { formatSseEvent, parseRuntimeEvent } from "@/lib/agent/events";
+import { formatSseEvent } from "@/lib/agent/events";
+import { collectUndeliveredTaskEvents, toClientEvent } from "@/lib/api/task-events";
 import { listTaskEvents } from "@/lib/store/events";
-
-function toClientEvent(event: Awaited<ReturnType<typeof listTaskEvents>>[number]) {
-  return {
-    id: event.id,
-    type: event.type,
-    createdAt: event.createdAt.toISOString(),
-    payload: parseRuntimeEvent(event.payload)
-  };
-}
 
 export async function GET(request: Request, context: { params: Promise<{ taskId: string }> }) {
   const { taskId } = await context.params;
@@ -25,15 +17,13 @@ export async function GET(request: Request, context: { params: Promise<{ taskId:
         let closed = false;
 
         const flushEvents = async () => {
-          const events = await listTaskEvents(taskId);
+          const events = await collectUndeliveredTaskEvents({
+            taskId,
+            deliveredIds
+          });
 
           for (const event of events) {
-            if (deliveredIds.has(event.id)) {
-              continue;
-            }
-
-            deliveredIds.add(event.id);
-            controller.enqueue(encoder.encode(formatSseEvent(toClientEvent(event), "task-event")));
+            controller.enqueue(encoder.encode(formatSseEvent(event, "task-event")));
           }
         };
 

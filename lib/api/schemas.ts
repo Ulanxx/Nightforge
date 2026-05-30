@@ -28,3 +28,12 @@ export const internalTaskReplyRequestSchema = z.object({
   originalPrompt: z.string().trim().min(1, "缺少 originalPrompt。"),
   message: z.string().trim().min(1, "缺少 message。")
 });
+
+export const internalTaskApprovalRequestSchema = z.object({
+  sessionId: z.string().trim().min(1, "缺少 sessionId。"),
+  taskId: z.string().trim().min(1, "缺少 taskId。"),
+  originalPrompt: z.string().trim().min(1, "缺少 originalPrompt。"),
+  approvalId: z.string().trim().min(1, "缺少 approvalId。"),
+  tool: z.string().trim().nullable().optional(),
+  inputJson: z.string().trim().nullable().optional()
+});
